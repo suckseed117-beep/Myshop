@@ -1,0 +1,6 @@
+{
+  "name": "Sa-laeng Market",
+  "description": "ตลาดนัดสะเล้ง - แพลตฟอร์มสั่งอาหารหลายร้านค้าสำหรับลูกค้า ร้านค้า และผู้ดูแลระบบ",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
