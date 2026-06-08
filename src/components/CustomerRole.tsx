@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, MapPin, Wallet, ShoppingBag, Star, Phone, Check, CreditCard, ChevronRight, ArrowLeft, Trash2, Plus, Minus, Home } from 'lucide-react';
+import { Search, MapPin, Wallet, ShoppingBag, Star, Phone, Check, CreditCard, ChevronRight, ArrowLeft, Trash2, Plus, Minus, Home, ClipboardList } from 'lucide-react';
 import { Merchant, MenuItem, CartItem, Order, UserProfile } from '../types';
 import { CATEGORIES } from '../data';
 
@@ -187,8 +187,18 @@ export default function CustomerRole({
   // Filter approved merchants by search or category
   const filteredMerchants = merchants.filter(merchant => {
     if (merchant.status !== 'approved') return false;
+    
+    // Check if any menu items of this merchant match the search query
+    const hasMatchingMenuItem = menuItems.some(item => 
+      item.merchantId === merchant.id && 
+      (item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+       item.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+
     const matchesSearch = merchant.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          merchant.description.toLowerCase().includes(searchQuery.toLowerCase());
+                          merchant.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          merchant.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          hasMatchingMenuItem;
     const matchesCategory = selectedCategory === 'ทั้งหมด' || merchant.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -219,14 +229,30 @@ export default function CustomerRole({
               </div>
             </div>
 
-            {/* Wallet Quick display */}
-            <button
-              onClick={() => setIsWalletModalOpen(true)}
-              className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm py-1.5 px-3 rounded-full text-xs font-semibold border border-white/10"
-            >
-              <Wallet className="w-4 h-4 text-white" />
-              <span>฿{profile.walletBalance.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
-            </button>
+            {/* Wallet & Cart Quick display */}
+            <div className="flex items-center space-x-1.5">
+              <button
+                onClick={() => setIsWalletModalOpen(true)}
+                className="flex items-center space-x-1.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm py-1.5 px-3 rounded-full text-[11px] font-semibold border border-white/10 text-white cursor-pointer"
+              >
+                <Wallet className="w-3.5 h-3.5 text-white" />
+                <span>฿{profile.walletBalance.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+              </button>
+
+              <button
+                onClick={() => setIsCheckoutOpen(true)}
+                className="relative flex items-center bg-white/10 hover:bg-white/20 backdrop-blur-sm p-2 rounded-full text-xs font-semibold border border-white/10 text-white cursor-pointer"
+                title="ดูตะกร้าสินค้าของคุณ"
+                id="header-cart-button"
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                {cart.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white font-extrabold rounded-full w-4.5 h-4.5 flex items-center justify-center text-[8px] border border-brand animate-pulse">
+                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Tab Selection */}
@@ -249,12 +275,12 @@ export default function CustomerRole({
           </div>
 
           {/* Search Bar only on Index */}
-          {activeTab === 'index' && !selectedMerchantId && (
+          {activeTab === 'index' && (
             <div className="relative">
               <Search className="absolute left-3 top-3.5 text-neutral-400 w-4.5 h-4.5" />
               <input
                 type="text"
-                placeholder="ค้นหาร้านค้าหรือเมนูดัง..."
+                placeholder={selectedMerchantId ? `ค้นหาเมนูในร้าน ${activeMerchant?.name || ''}...` : "ค้นหาร้านค้าหรือเมนูดัง..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-white text-neutral-800 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none shadow-sm placeholder:text-neutral-400"
@@ -407,11 +433,42 @@ export default function CustomerRole({
 
                     {/* Menu list for this merchant only */}
                     <div>
-                      <h3 className="text-sm font-bold text-neutral-900 mb-3">รายการอาหารแนะนำ</h3>
+                      <h3 className="text-sm font-bold text-neutral-900 mb-3">
+                        {searchQuery ? `ผลการค้นหาเมนู (${menuItems.filter(item => item.merchantId === selectedMerchantId && (item.name.toLowerCase().includes(searchQuery.toLowerCase()) || item.description.toLowerCase().includes(searchQuery.toLowerCase()))).length} รายการ)` : 'รายการอาหารแนะนำ'}
+                      </h3>
                       <div className="space-y-3">
-                        {menuItems
-                          .filter(item => item.merchantId === selectedMerchantId)
-                          .map(item => (
+                        {(() => {
+                          const filteredMenu = menuItems
+                            .filter(item => item.merchantId === selectedMerchantId)
+                            .filter(item => {
+                              if (!searchQuery) return true;
+                              return item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                     item.description.toLowerCase().includes(searchQuery.toLowerCase());
+                            });
+
+                          if (filteredMenu.length === 0) {
+                            return (
+                              <div className="bg-white rounded-2xl p-10 text-center border border-earth-linen shadow-sm select-none">
+                                <div className="w-16 h-16 bg-earth-linen rounded-full flex items-center justify-center mx-auto mb-4 border border-earth-linen/50">
+                                  <Search className="text-earth-moss w-8 h-8" />
+                                </div>
+                                <h4 className="text-sm font-extrabold text-earth-bark mb-1">
+                                  ไม่พบเมนูที่ค้นหา
+                                </h4>
+                                <p className="text-xs text-earth-moss max-w-[240px] mx-auto leading-relaxed mb-4">
+                                  ไม่พบเมนูใดๆ ที่ตรงกับ "{searchQuery}" ในร้านนี้ ลองพิมพ์ค้นหาด้วยชื่ออาหารอื่นดูนะคะ
+                                </p>
+                                <button
+                                  onClick={() => setSearchQuery('')}
+                                  className="text-white bg-brand hover:bg-brand-hover text-xs font-bold py-2 px-4 rounded-xl cursor-pointer shadow-xs"
+                                >
+                                  ล้างคำค้นหา
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return filteredMenu.map(item => (
                             <div
                               key={item.id}
                               className="bg-white rounded-xl p-3 border border-earth-linen flex gap-3 shadow-xs hover:border-brand/10 transition-all"
@@ -451,7 +508,8 @@ export default function CustomerRole({
                                 </div>
                               </div>
                             </div>
-                          ))}
+                          ));
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -473,16 +531,19 @@ export default function CustomerRole({
             </div>
 
             {orders.length === 0 ? (
-              <div className="bg-white rounded-xl p-10 text-center border border-earth-linen shadow-xs">
-                <div className="w-12 h-12 bg-earth-linen rounded-full flex items-center justify-center mx-auto mb-3">
-                  <ShoppingBag className="text-earth-moss w-6 h-6" />
+              <div className="bg-white rounded-2xl p-12 text-center border border-earth-linen shadow-sm max-w-sm mx-auto my-6 select-none">
+                <div className="w-20 h-20 bg-earth-linen rounded-full flex items-center justify-center mx-auto mb-6 border border-earth-linen/80">
+                  <ClipboardList className="text-earth-moss w-10 h-10 animate-pulse" />
                 </div>
-                <p className="text-sm text-earth-moss font-medium">คุณยังไม่มีประวัติชำระเงินหรือสั่งซื้อในขณะนี้ค่ะ</p>
+                <h3 className="text-base font-extrabold text-earth-bark mb-2">ยังไม่มีประวัติสั่งซื้ออาหารของคุณ</h3>
+                <p className="text-xs text-earth-moss leading-relaxed max-w-[280px] mx-auto mb-6">
+                  เมื่อคุณเริ่มสั่งอาหาร คุณจะสามารถติดตามพิกัดการนำส่งของสะเล้งพาร์ตเนอร์และดูสถานะความคืบหน้าของครัวได้แบบสดๆ ทันทีค่ะ!
+                </p>
                 <button
                   onClick={() => setActiveTab('index')}
-                  className="mt-3 text-xs bg-brand text-white font-bold py-2 px-4 rounded-full hover:bg-brand-hover cursor-pointer"
+                  className="bg-brand text-white hover:bg-brand-hover text-xs font-bold py-3 px-6 rounded-full transition-all duration-200 active:scale-95 shadow-md cursor-pointer"
                 >
-                  เริ่มช้อปอาหารอร่อย
+                  เริ่มสำรวจของอร่อยในตลาดสะเล้ง
                 </button>
               </div>
             ) : (
@@ -619,115 +680,137 @@ export default function CustomerRole({
                 </button>
               </div>
 
-              {/* Delivery info */}
-              <div className="bg-earth-sand p-3 rounded-xl my-3 border border-earth-linen text-xs text-earth-bark">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-bold text-earth-bark">ส่งไปที่: {profile.name}</span>
-                  <button onClick={() => setIsEditingAddress(true)} className="text-brand hover:underline font-bold">
-                    แก้ไขข้อมูล
+              {cart.length === 0 ? (
+                <div className="py-12 px-4 text-center select-none">
+                  <div className="w-20 h-20 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-5 shadow-xs border border-brand/10">
+                    <ShoppingBag className="text-brand w-9 h-9 animate-bounce" />
+                  </div>
+                  <h4 className="text-base font-black text-earth-bark mb-1.5">
+                    ตะกร้าสินค้าของคุณว่างเปล่า
+                  </h4>
+                  <p className="text-xs text-earth-moss max-w-xs mx-auto leading-relaxed mb-6">
+                    คุณยังไม่ได้เลือกอาหารจานโปรดลงในตะกร้าเลยค่ะ ลองเข้ามาสำรวจร้านอร่อยพาร์ตเนอร์ของเราในเขตสะเล้งกันเถอะ!
+                  </p>
+                  <button
+                    onClick={() => setIsCheckoutOpen(false)}
+                    className="bg-brand text-white hover:bg-brand-hover text-xs font-bold py-2.5 px-6 rounded-xl inline-flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
+                    กลับไปหาของอร่อย <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-earth-moss mt-1">📞 โทร: {profile.phone}</p>
-                <p className="text-earth-moss mt-0.5">📍 ที่อยู่จัดส่ง: {profile.address}</p>
-              </div>
-
-              {/* Items Summary list */}
-              <div className="space-y-2 mb-3">
-                <p className="text-xs font-bold text-earth-moss/70">รายการอาหารในตะกร้า</p>
-                {cart.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center text-xs py-1 border-b border-earth-linen/50">
-                    <div className="flex-1">
-                      <p className="font-bold text-earth-bark">{item.name}</p>
-                      <p className="text-earth-moss/70">฿{item.price} ชิ้น/ห่อ</p>
+              ) : (
+                <>
+                  {/* Delivery info */}
+                  <div className="bg-earth-sand p-3 rounded-xl my-3 border border-earth-linen text-xs text-earth-bark">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-earth-bark">ส่งไปที่: {profile.name}</span>
+                      <button onClick={() => setIsEditingAddress(true)} className="text-brand hover:underline font-bold">
+                        แก้ไขข้อมูล
+                      </button>
                     </div>
-                    {/* Item control */}
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center space-x-1.5 border border-earth-linen rounded-md p-0.5">
-                        <button
-                          onClick={() => updateCartQuantity(item.id, false)}
-                          className="p-1 text-earth-moss hover:bg-earth-linen rounded-md cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="font-bold text-earth-bark text-xs min-w-[12px] text-center">{item.quantity}</span>
-                        <button
-                          onClick={() => updateCartQuantity(item.id, true)}
-                          className="p-1 text-brand hover:bg-earth-linen rounded-md cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
+                    <p className="text-earth-moss mt-1">📞 โทร: {profile.phone}</p>
+                    <p className="text-earth-moss mt-0.5">📍 ที่อยู่จัดส่ง: {profile.address}</p>
+                  </div>
+
+                  {/* Items Summary list */}
+                  <div className="space-y-2 mb-3">
+                    <p className="text-xs font-bold text-earth-moss/70">รายการอาหารในตะกร้า</p>
+                    {cart.map((item) => (
+                      <div key={item.id} className="flex justify-between items-center text-xs py-1 border-b border-earth-linen/50">
+                        <div className="flex-1">
+                          <p className="font-bold text-earth-bark">{item.name}</p>
+                          <p className="text-earth-moss/70">฿{item.price} ชิ้น/ห่อ</p>
+                        </div>
+                        {/* Item control */}
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-1.5 border border-earth-linen rounded-md p-0.5">
+                            <button
+                              onClick={() => updateCartQuantity(item.id, false)}
+                              className="p-1 text-earth-moss hover:bg-earth-linen rounded-md cursor-pointer"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="font-bold text-earth-bark text-xs min-w-[12px] text-center">{item.quantity}</span>
+                            <button
+                              onClick={() => updateCartQuantity(item.id, true)}
+                              className="p-1 text-brand hover:bg-earth-linen rounded-md cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <span className="font-extrabold w-12 text-right text-earth-bark">฿{item.price * item.quantity}</span>
+                        </div>
                       </div>
-                      <span className="font-extrabold w-12 text-right text-earth-bark">฿{item.price * item.quantity}</span>
+                    ))}
+                  </div>
+
+                  {/* Payment selector */}
+                  <div className="mb-4 bg-earth-sand p-3 rounded-xl border border-earth-linen">
+                    <p className="text-xs font-bold text-earth-bark mb-2">ช่องทางชำระเงิน</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setPaymentMethod('wallet')}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs text-left transition-all cursor-pointer ${
+                          paymentMethod === 'wallet'
+                            ? 'border-brand bg-brand-light text-brand font-bold'
+                            : 'border-earth-linen bg-white text-earth-moss'
+                        }`}
+                      >
+                        <div>
+                          <p className="font-bold">E-Wallet ตลาดสะเล้ง</p>
+                          <p className="text-[10px] text-earth-moss/70">คงเหลือ: ฿{profile.walletBalance}</p>
+                        </div>
+                        {paymentMethod === 'wallet' && <Check className="w-4 h-4 text-brand" />}
+                      </button>
+
+                      <button
+                        onClick={() => setPaymentMethod('cash')}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs text-left transition-all cursor-pointer ${
+                          paymentMethod === 'cash'
+                            ? 'border-brand bg-brand-light text-brand font-bold'
+                            : 'border-earth-linen bg-white text-earth-moss'
+                        }`}
+                      >
+                        <div>
+                          <p className="font-bold">เงินสดปลายทาง</p>
+                          <p className="text-[10px] text-earth-moss/70">จ่ายเมื่อไรเดอร์ส่งถึง</p>
+                        </div>
+                        {paymentMethod === 'cash' && <Check className="w-4 h-4 text-brand" />}
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
 
-              {/* Payment selector */}
-              <div className="mb-4 bg-earth-sand p-3 rounded-xl border border-earth-linen">
-                <p className="text-xs font-bold text-earth-bark mb-2">ช่องทางชำระเงิน</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setPaymentMethod('wallet')}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs text-left transition-all cursor-pointer ${
-                      paymentMethod === 'wallet'
-                        ? 'border-brand bg-brand-light text-brand font-bold'
-                        : 'border-earth-linen bg-white text-earth-moss'
-                    }`}
-                  >
-                    <div>
-                      <p className="font-bold">E-Wallet ตลาดสะเล้ง</p>
-                      <p className="text-[10px] text-earth-moss/70">คงเหลือ: ฿{profile.walletBalance}</p>
+                  {/* Price Breakdown */}
+                  <div className="bg-earth-sand p-3 rounded-xl space-y-1.5 border border-earth-linen text-xs text-earth-bark mb-4 font-medium">
+                    <div className="flex justify-between">
+                      <span>ราคารวมสินค้า (Subtotal)</span>
+                      <span>฿{cartSubtotal}</span>
                     </div>
-                    {paymentMethod === 'wallet' && <Check className="w-4 h-4 text-brand" />}
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('cash')}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs text-left transition-all cursor-pointer ${
-                      paymentMethod === 'cash'
-                        ? 'border-brand bg-brand-light text-brand font-bold'
-                        : 'border-earth-linen bg-white text-earth-moss'
-                    }`}
-                  >
-                    <div>
-                      <p className="font-bold">เงินสดปลายทาง</p>
-                      <p className="text-[10px] text-earth-moss/70">จ่ายเมื่อไรเดอร์ส่งถึง</p>
+                    <div className="flex justify-between">
+                      <span>ค่าบริการขนส่งสะเล้ง ({deliveryDistance} กม.)</span>
+                      <span>฿{deliveryFee}</span>
                     </div>
-                    {paymentMethod === 'cash' && <Check className="w-4 h-4 text-brand" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Price Breakdown */}
-              <div className="bg-earth-sand p-3 rounded-xl space-y-1.5 border border-earth-linen text-xs text-earth-bark mb-4 font-medium">
-                <div className="flex justify-between">
-                  <span>ราคารวมสินค้า (Subtotal)</span>
-                  <span>฿{cartSubtotal}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>ค่าบริการขนส่งสะเล้ง ({deliveryDistance} กม.)</span>
-                  <span>฿{deliveryFee}</span>
-                </div>
-                {paymentMethod === 'wallet' && (
-                  <div className="flex justify-between text-brand">
-                    <span>ชำระผ่านวอลเลทคงเหลือหลังซื้อ</span>
-                    <span>฿{parseFloat((profile.walletBalance - cartTotal).toFixed(2))}</span>
+                    {paymentMethod === 'wallet' && (
+                      <div className="flex justify-between text-brand">
+                        <span>ชำระผ่านวอลเลทคงเหลือหลังซื้อ</span>
+                        <span>฿{parseFloat((profile.walletBalance - cartTotal).toFixed(2))}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-earth-linen pt-2 flex justify-between font-extrabold text-sm text-earth-bark">
+                      <span>ยอดสุทธิทั้งหมด</span>
+                      <span className="text-brand">฿{cartTotal}</span>
+                    </div>
                   </div>
-                )}
-                <div className="border-t border-earth-linen pt-2 flex justify-between font-extrabold text-sm text-earth-bark">
-                  <span>ยอดสุทธิทั้งหมด</span>
-                  <span className="text-brand">฿{cartTotal}</span>
-                </div>
-              </div>
 
-              <button
-                onClick={handleCheckout}
-                className="w-full bg-brand hover:bg-brand-hover text-white text-sm font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
-                id="place-order-button"
-              >
-                <CreditCard className="w-4 h-4" /> ยืนยันชำระค่าอาหารและส่งใบสั่งซื้อ
-              </button>
+                  <button
+                    onClick={handleCheckout}
+                    className="w-full bg-brand hover:bg-brand-hover text-white text-sm font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                    id="place-order-button"
+                  >
+                    <CreditCard className="w-4 h-4" /> ยืนยันชำระค่าอาหารและส่งใบสั่งซื้อ
+                  </button>
+                </>
+              )}
             </motion.div>
           </div>
         )}

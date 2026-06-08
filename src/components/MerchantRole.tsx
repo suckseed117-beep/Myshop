@@ -548,9 +548,16 @@ export default function MerchantRole({
                     <div>
                       <h3 className="text-xs font-bold text-neutral-400 uppercase mb-3">คำรับสั่งซื้อเข้าสู่ครัวคลาสสิก ({merchantOrders.length} รายการ)</h3>
                       {merchantOrders.length === 0 ? (
-                        <div className="bg-white rounded-lg p-8 text-center border border-neutral-100 shadow-xs pointer-events-none">
-                          <ClipboardList className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-                          <p className="text-xs text-neutral-500 font-medium">ไม่มีรายการสั่งซื้ออาหารเข้ามาในขณะนี้</p>
+                        <div className="bg-white rounded-2xl p-12 text-center border border-earth-linen shadow-sm my-4">
+                          <div className="w-20 h-20 bg-earth-linen rounded-full flex items-center justify-center mx-auto mb-6 border border-earth-linen/80">
+                            <ClipboardList className="w-10 h-10 text-earth-moss animate-pulse" />
+                          </div>
+                          <h4 className="text-sm font-extrabold text-earth-bark mb-1">
+                            ไม่มีออเดอร์ใหม่เข้ามา
+                          </h4>
+                          <p className="text-xs text-earth-moss max-w-[280px] mx-auto leading-relaxed">
+                            ระบบกำลังเฝ้าติดตามลูกค้าในพื้นที่ หากมีรายการสั่งซื้ออาหารเข้ามาใหม่ จะมีแจ้งเตือนสั่นสะเทือนในแผงควบคุมนี้แบบเรียลไทม์ทันทีค่ะ
+                          </p>
                         </div>
                       ) : (
                         <div className="space-y-3">
